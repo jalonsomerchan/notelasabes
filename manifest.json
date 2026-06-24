@@ -1,0 +1,10 @@
+{
+  "name": "No te la sabes",
+  "short_name": "NoTeLaSabes",
+  "description": "Juego multijugador de preguntas y respuestas con modos trivial, equipos, pulsador y lo sabe/no lo sabe.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#100B2F",
+  "theme_color": "#25144f",
+  "icons": []
+}

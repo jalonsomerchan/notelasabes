@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>No te la sabes</title>
+  <meta name="description" content="Juego multijugador de preguntas y respuestas con modos de trivial, equipos, pulsador y lo sabe/no lo sabe." />
+  <meta name="theme-color" content="#25144f" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#7C3AED', dark: '#4C1D95', light: '#C4B5FD' },
+            quiz: { blue: '#38BDF8', pink: '#FB7185', amber: '#FACC15', green: '#34D399', ink: '#100B2F' }
+          },
+          fontFamily: { game: ['Outfit', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { min-height: 100%; }
+    .screen { display: none; }
+    .screen.active { display: flex; animation: screenIn .32s cubic-bezier(.34,1.4,.64,1) both; }
+    @keyframes screenIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes pop { 0% { opacity:0; transform:scale(.55) translateY(12px); } 72% { transform:scale(1.045) translateY(-2px); } 100% { opacity:1; transform:scale(1) translateY(0); } }
+    @keyframes shake { 0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(4px)} }
+    @keyframes orbFloat { 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-26px) scale(1.08); } }
+    @keyframes confettiFall { 0%{ transform:translateY(-10px) rotate(0deg); opacity:1; } 100%{ transform:translateY(110vh) rotate(760deg); opacity:0; } }
+    @keyframes glowSweep { 0%{ transform:translateX(-130%) skewX(-18deg); } 100%{ transform:translateX(150%) skewX(-18deg); } }
+    @keyframes timerPulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
+    .pop { animation: pop .45s cubic-bezier(.18,1.25,.32,1) both; }
+    .shake { animation: shake .38s ease; }
+    .orb { position:absolute; border-radius:999px; filter:blur(78px); pointer-events:none; }
+    .glass { background:rgba(16,11,47,.76); border:1px solid rgba(255,255,255,.10); backdrop-filter:blur(24px); box-shadow:0 24px 80px rgba(0,0,0,.30); }
+    .panel { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.10); backdrop-filter:blur(18px); }
+    .btn-brand { background:linear-gradient(135deg,#7C3AED,#EC4899); transition: transform .12s, filter .18s, box-shadow .18s; box-shadow:0 16px 42px rgba(124,58,237,.28); }
+    .btn-brand:hover { filter:brightness(1.08); box-shadow:0 18px 55px rgba(236,72,153,.32); }
+    .btn-brand:active { transform:scale(.98); }
+    .btn-soft { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.10); transition:background .18s, transform .12s, border-color .18s; }
+    .btn-soft:hover { background:rgba(255,255,255,.15); border-color:rgba(255,255,255,.18); }
+    .btn-soft:active { transform:scale(.98); }
+    .btn-answer { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); transition:transform .12s, background .18s, border-color .18s, box-shadow .18s; }
+    .btn-answer:hover { background:rgba(255,255,255,.14); }
+    .btn-answer.selected { background:rgba(124,58,237,.35); border-color:rgba(196,181,253,.75); box-shadow:0 0 0 1px rgba(196,181,253,.25),0 14px 38px rgba(124,58,237,.20); }
+    .btn-answer.correct { background:rgba(52,211,153,.26); border-color:rgba(52,211,153,.72); }
+    .btn-answer.wrong { background:rgba(251,113,133,.22); border-color:rgba(251,113,133,.65); }
+    .text-gradient { background:linear-gradient(135deg,#F8FAFC,#C4B5FD 42%,#FACC15); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .quiz-title { text-shadow:0 0 34px rgba(196,181,253,.24); }
+    .mode-card { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); transition:transform .12s, background .18s, border-color .18s, box-shadow .18s; }
+    .mode-card:hover { background:rgba(255,255,255,.11); }
+    .mode-card.active { background:rgba(124,58,237,.28); border-color:rgba(196,181,253,.65); box-shadow:0 0 0 1px rgba(196,181,253,.22), 0 14px 38px rgba(124,58,237,.20); }
+    .toggle { position:relative; display:inline-block; width:52px; height:30px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-track { position:absolute; inset:0; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.10); transition:.2s; cursor:pointer; }
+    .toggle-track::after { content:''; position:absolute; width:22px; height:22px; left:3px; top:3px; border-radius:50%; background:white; transition:.2s; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+    .toggle input:checked + .toggle-track { background:#7C3AED; box-shadow:0 0 24px rgba(124,58,237,.38); }
+    .toggle input:checked + .toggle-track::after { transform:translateX(22px); }
+    .category-pill { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.055); }
+    .category-pill .category-check { opacity:.28; transform:scale(.9); transition:.18s; }
+    .category-pill:has(input:checked) { background:rgba(124,58,237,.28)!important; border-color:rgba(196,181,253,.75); color:#ede9fe; box-shadow:0 10px 32px rgba(124,58,237,.14); }
+    .category-pill:has(input:checked) .category-check { opacity:1; transform:scale(1); background:#C4B5FD; color:#100B2F; }
+    .scrollbar-none { scrollbar-width:none; }
+    .scrollbar-none::-webkit-scrollbar { display:none; }
+    .confetti-piece { position:fixed; top:0; pointer-events:none; z-index:200; animation:confettiFall linear forwards; }
+    .winner-card { position:relative; overflow:hidden; animation:pop .55s cubic-bezier(.18,1.25,.32,1) both; }
+    .winner-card::after { content:''; position:absolute; top:0; bottom:0; left:0; width:42%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent); animation:glowSweep 1.1s ease-out .1s both; }
+    .pulse-timer { animation:timerPulse .85s ease-in-out infinite; }
+    .safe-bottom { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+    @media (max-width: 640px) {
+      .mobile-tight { padding-left: 10px!important; padding-right: 10px!important; }
+      #screen-game.active { min-height:100dvh; overflow:hidden; padding-top:calc(8px + env(safe-area-inset-top)); padding-bottom:calc(8px + env(safe-area-inset-bottom)); gap:8px; }
+      #game-main { display:flex!important; flex-direction:column; gap:8px; min-height:0; flex:1; }
+      #question-card { padding:14px!important; border-radius:24px!important; min-height:0; }
+      #question-text { font-size:clamp(22px,7vw,34px)!important; line-height:1.05!important; }
+      #answers-grid { gap:7px!important; }
+      #answers-grid button { padding:12px!important; border-radius:18px!important; min-height:54px; }
+      #game-sidebar { border-radius:22px!important; padding:10px!important; flex:0 0 auto; }
+      #score-strip { display:none!important; }
+      #target-title { font-size:14px!important; }
+    }
+  </style>
+</head>
+<body class="h-full bg-[#100B2F] text-white font-game select-none overflow-x-hidden">
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="orb w-96 h-96 bg-brand/40 -top-24 -left-24" style="animation:orbFloat 7s ease-in-out infinite"></div>
+    <div class="orb w-[28rem] h-[28rem] bg-quiz-pink/30 -bottom-36 -right-24" style="animation:orbFloat 9s ease-in-out infinite reverse"></div>
+    <div class="orb w-72 h-72 bg-quiz-blue/20 top-1/3 left-1/2" style="animation:orbFloat 6s ease-in-out infinite 1.5s"></div>
+  </div>
+
+  <section id="screen-login" class="screen active flex-col items-center justify-center min-h-screen p-6 gap-7 relative safe-bottom">
+    <div class="text-center pop">
+      <p class="text-xs font-black uppercase tracking-[.42em] text-brand-light/85 mb-2">party trivia game</p>
+      <h1 class="quiz-title text-6xl sm:text-7xl font-black tracking-tighter text-gradient">No te la sabes</h1>
+      <p class="text-violet-100/60 mt-3 max-w-md mx-auto">Crea una sala, elige modo de juego y juega con preguntas reales de Trivial DB.</p>
+    </div>
+
+    <div class="w-full max-w-sm glass rounded-[2rem] p-5 sm:p-6 flex flex-col gap-4 pop" style="animation-delay:.08s">
+      <input id="input-username" type="text" maxlength="20" autocomplete="off" placeholder="Tu nombre de jugador"
+        class="w-full bg-black/25 border-2 border-white/10 rounded-2xl px-4 py-4 text-center text-xl font-black outline-none focus:border-brand-light focus:ring-4 focus:ring-brand/20 placeholder-white/25 transition"
+        onkeydown="if(event.key==='Enter')App.createHomeRoom()" />
+      <p id="login-error" class="hidden text-rose-200 text-xs text-center font-semibold"></p>
+
+      <div id="login-actions" class="grid grid-cols-2 gap-3">
+        <button id="btn-create-room" onclick="App.createHomeRoom()" class="btn-brand rounded-2xl py-4 font-black uppercase tracking-wider">Crear sala</button>
+        <button onclick="App.showJoinForm()" class="btn-soft rounded-2xl py-4 font-black uppercase tracking-wider">Unirse</button>
+      </div>
+
+      <div id="join-container" class="hidden flex flex-col gap-3 pt-3 border-t border-white/10">
+        <input id="input-room-code" type="text" maxlength="8" autocomplete="off" placeholder="CÓDIGO"
+          class="w-full bg-black/25 border-2 border-white/10 rounded-2xl px-4 py-4 text-center text-2xl font-black tracking-[.38em] uppercase outline-none focus:border-brand-light focus:ring-4 focus:ring-brand/20 placeholder-white/20 placeholder:tracking-widest transition"
+          oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')App.joinHomeRoom()" />
+        <p id="join-error" class="hidden text-rose-200 text-xs text-center font-semibold"></p>
+        <button onclick="App.joinHomeRoom()" class="btn-brand rounded-2xl py-4 font-black uppercase tracking-wider">Entrar</button>
+        <button onclick="App.hideJoinForm()" class="btn-soft rounded-2xl py-3 text-sm font-bold text-violet-100/70">Volver</button>
+      </div>
+
+      <button id="switch-user" onclick="App.switchUser()" class="hidden text-xs text-violet-100/45 hover:text-violet-100/70 underline underline-offset-4">Cambiar jugador guardado</button>
+    </div>
+
+    <div id="catalog-status" class="text-xs text-violet-100/45 text-center max-w-lg"></div>
+  </section>
+
+  <section id="screen-waiting" class="screen flex-col min-h-screen p-4 sm:p-6 gap-4 relative mobile-tight safe-bottom">
+    <header class="w-full max-w-6xl mx-auto glass rounded-[2rem] px-5 py-4 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-xs text-violet-100/45 font-bold uppercase tracking-widest">Sala</p>
+        <p id="waiting-code" class="font-black text-3xl tracking-[.18em] text-gradient">—</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="realtime-badge" class="hidden sm:inline-flex text-xs font-black px-3 py-1.5 rounded-full bg-white/10 text-violet-100/60">API</span>
+        <button onclick="App.openShareModal()" class="btn-soft rounded-2xl px-4 py-3 text-sm font-black">Compartir</button>
+        <button onclick="App.exitToHome()" class="hidden sm:block btn-soft rounded-2xl px-4 py-3 text-sm font-black text-violet-100/70">Salir</button>
+      </div>
+    </header>
+
+    <main class="w-full max-w-6xl mx-auto grid lg:grid-cols-[1.2fr_.8fr] gap-4 flex-1 min-h-0">
+      <section id="admin-settings" class="glass rounded-[2rem] p-5 overflow-y-auto scrollbar-none">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-12 h-12 rounded-2xl bg-brand/25 border border-brand-light/25 flex items-center justify-center text-2xl">❓</div>
+          <div>
+            <p class="text-xs text-brand-light font-black uppercase tracking-widest">Configuración</p>
+            <h2 class="text-2xl font-black">La partida</h2>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <p class="text-sm font-black mb-2">Modo de juego</p>
+          <div id="mode-list" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-2"></div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3 mb-3">
+          <label class="panel rounded-2xl p-4">
+            <span class="text-sm font-bold">Nº de rondas</span>
+            <span class="block text-xs text-violet-100/45 mt-1">Preguntas de la partida</span>
+            <div class="mt-3 flex items-center gap-2">
+              <button type="button" onclick="App.adjustSetting('rounds', -1)" class="btn-soft rounded-xl w-10 h-10 text-xl font-black">−</button>
+              <input id="cfg-rounds" type="number" min="3" max="60" value="12" class="w-full bg-black/25 border border-white/10 rounded-xl px-3 py-2 text-center font-black outline-none focus:border-brand-light" />
+              <button type="button" onclick="App.adjustSetting('rounds', 1)" class="btn-soft rounded-xl w-10 h-10 text-xl font-black">+</button>
+            </div>
+          </label>
+
+          <label class="panel rounded-2xl p-4">
+            <span class="text-sm font-bold">Tiempo</span>
+            <span class="block text-xs text-violet-100/45 mt-1">Segundos para responder</span>
+            <div class="mt-3 flex items-center gap-2">
+              <button type="button" onclick="App.adjustSetting('roundSeconds', -5)" class="btn-soft rounded-xl w-10 h-10 text-xl font-black">−</button>
+              <input id="cfg-time" type="number" min="10" max="180" value="35" class="w-full bg-black/25 border border-white/10 rounded-xl px-3 py-2 text-center font-black outline-none focus:border-brand-light" />
+              <button type="button" onclick="App.adjustSetting('roundSeconds', 5)" class="btn-soft rounded-xl w-10 h-10 text-xl font-black">+</button>
+            </div>
+          </label>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-3 mb-3">
+          <label class="panel rounded-2xl p-4 flex items-center justify-between gap-4">
+            <span><span class="block text-sm font-bold">No me lo sé</span><span class="block text-xs text-violet-100/45 mt-1">Retar a otro jugador</span></span>
+            <span class="toggle"><input id="cfg-pass" type="checkbox" checked /><span class="toggle-track"></span></span>
+          </label>
+          <label class="panel rounded-2xl p-4 flex items-center justify-between gap-4">
+            <span><span class="block text-sm font-bold">El más rápido</span><span class="block text-xs text-violet-100/45 mt-1">Pulsador antes de responder</span></span>
+            <span class="toggle"><input id="cfg-fastest" type="checkbox" /><span class="toggle-track"></span></span>
+          </label>
+          <label class="panel rounded-2xl p-4 flex items-center justify-between gap-4">
+            <span><span class="block text-sm font-bold">Admin lee</span><span class="block text-xs text-violet-100/45 mt-1">Jugadores solo ven opciones</span></span>
+            <span class="toggle"><input id="cfg-admin-reads" type="checkbox" /><span class="toggle-track"></span></span>
+          </label>
+        </div>
+
+        <div class="panel rounded-2xl p-4 mb-3">
+          <p class="text-sm font-bold mb-3">Dificultad</p>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="category-pill cursor-pointer rounded-2xl border border-white/10 px-3 py-2.5 text-xs font-bold text-violet-100/75 transition"><input type="checkbox" class="sr-only difficulty-filter" value="easy" /><span class="category-check w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black">✓</span> Fácil</label>
+            <label class="category-pill cursor-pointer rounded-2xl border border-white/10 px-3 py-2.5 text-xs font-bold text-violet-100/75 transition"><input type="checkbox" class="sr-only difficulty-filter" value="medium" /><span class="category-check w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black">✓</span> Media</label>
+            <label class="category-pill cursor-pointer rounded-2xl border border-white/10 px-3 py-2.5 text-xs font-bold text-violet-100/75 transition"><input type="checkbox" class="sr-only difficulty-filter" value="hard" /><span class="category-check w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-black">✓</span> Difícil</label>
+          </div>
+          <p class="text-xs text-violet-100/45 mt-2">Si no marcas ninguna, entran todas.</p>
+        </div>
+
+        <div class="panel rounded-2xl p-4">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p class="text-sm font-bold">Categorías</p>
+              <p class="text-xs text-violet-100/45 mt-1">Usa todas o limita la partida a las que quieras.</p>
+            </div>
+            <span id="category-count" class="text-xs font-black px-2.5 py-1 rounded-full bg-white/10 text-violet-100/70 whitespace-nowrap">Todas</span>
+          </div>
+          <input id="category-search" type="search" placeholder="Buscar categoría…" autocomplete="off" oninput="App.filterCategories(this.value)"
+            class="w-full bg-black/25 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-brand-light focus:ring-4 focus:ring-brand/15 placeholder-white/25 mb-3" />
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button type="button" onclick="App.clearCategories()" class="btn-soft rounded-2xl py-3 text-sm font-black">Todas</button>
+            <button type="button" onclick="App.focusCategories()" class="btn-soft rounded-2xl py-3 text-sm font-black">Elegir</button>
+          </div>
+          <div id="category-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1 scrollbar-none"></div>
+        </div>
+      </section>
+
+      <section class="glass rounded-[2rem] p-5 flex flex-col min-h-[360px]">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <p class="text-xs text-brand-light font-black uppercase tracking-widest">Jugadores</p>
+            <h2 class="text-2xl font-black"><span id="waiting-count">0</span> en sala</h2>
+          </div>
+          <div id="team-help" class="text-xs font-black px-3 py-1.5 rounded-full bg-white/10 text-violet-100/60">Equipos auto</div>
+        </div>
+        <div id="waiting-players" class="flex flex-col gap-2 flex-1 overflow-y-auto scrollbar-none"></div>
+        <div class="pt-4 mt-4 border-t border-white/10">
+          <button id="start-button" onclick="App.startGame()" class="btn-brand w-full rounded-2xl py-4 font-black text-lg">Empezar partida 🚀</button>
+          <p id="guest-wait" class="hidden text-center text-violet-100/55 text-sm py-4">Esperando al anfitrión…</p>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <section id="screen-game" class="screen flex-col min-h-screen p-4 sm:p-6 gap-4 relative mobile-tight safe-bottom">
+    <header class="w-full max-w-6xl mx-auto glass rounded-[2rem] px-4 sm:px-5 py-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-xs text-violet-100/45 font-bold uppercase tracking-widest">Ronda <span id="game-round">1</span>/<span id="game-total">12</span></p>
+        <h2 id="game-mode-label" class="font-black text-lg sm:text-2xl truncate">Trivial</h2>
+        <div class="mt-2 h-2 w-36 sm:w-56 bg-white/10 rounded-full overflow-hidden"><div id="timer-bar" class="h-full bg-gradient-to-r from-quiz-green via-quiz-amber to-quiz-pink rounded-full transition-all duration-300" style="width:100%"></div></div>
+      </div>
+      <div class="text-right flex-shrink-0">
+        <p class="text-xs text-violet-100/45 font-bold uppercase tracking-widest">Tiempo</p>
+        <p id="timer-label" class="text-3xl font-black tabular-nums">35</p>
+      </div>
+    </header>
+
+    <main id="game-main" class="w-full max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-4 flex-1 min-h-0">
+      <section id="question-card" class="glass rounded-[2.4rem] p-5 sm:p-7 flex flex-col justify-center overflow-hidden relative">
+        <div class="absolute inset-x-8 top-10 h-32 bg-brand/20 blur-3xl rounded-full"></div>
+        <div class="relative">
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <span id="question-category" class="inline-flex bg-brand/20 border border-brand-light/20 text-brand-light rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest">Categoría</span>
+            <span id="question-difficulty" class="inline-flex bg-white/10 border border-white/10 text-violet-100/70 rounded-full px-3 py-2 text-xs font-black uppercase tracking-widest">Nivel</span>
+            <span id="admin-read-badge" class="hidden bg-quiz-amber/15 border border-quiz-amber/30 text-quiz-amber rounded-full px-3 py-2 text-xs font-black uppercase tracking-widest">Lee el admin</span>
+          </div>
+          <p id="target-title" class="text-sm text-violet-100/55 font-bold uppercase tracking-widest mb-3">Turno</p>
+          <h1 id="question-text" class="text-3xl sm:text-5xl font-black leading-tight text-gradient">Pregunta</h1>
+          <p id="question-note" class="text-violet-100/55 mt-4 text-sm"></p>
+          <div id="buzzer-panel" class="hidden mt-6 panel rounded-[2rem] p-4 text-center">
+            <p class="text-sm text-violet-100/60 mb-3">Pulsa antes que nadie para poder responder.</p>
+            <button id="buzzer-button" onclick="App.hitBuzzer()" class="btn-brand rounded-[2rem] w-full py-6 text-2xl font-black">¡ME LA SÉ! ⚡</button>
+            <p id="buzzer-status" class="text-xs text-violet-100/45 mt-3"></p>
+          </div>
+          <div id="answers-grid" class="grid sm:grid-cols-2 gap-3 mt-6"></div>
+          <div id="prediction-grid" class="hidden grid grid-cols-2 gap-3 mt-6">
+            <button onclick="App.submitPrediction(true)" class="btn-answer rounded-[1.5rem] p-5 text-left"><span class="block text-3xl mb-2">🧠</span><span class="font-black text-xl">Lo sabe</span><span class="block text-xs text-violet-100/45 mt-1">Creo que acertará</span></button>
+            <button onclick="App.submitPrediction(false)" class="btn-answer rounded-[1.5rem] p-5 text-left"><span class="block text-3xl mb-2">😬</span><span class="font-black text-xl">No lo sabe</span><span class="block text-xs text-violet-100/45 mt-1">Creo que fallará</span></button>
+          </div>
+          <div id="pass-panel" class="hidden mt-4">
+            <button onclick="App.passQuestion()" class="btn-soft rounded-2xl px-5 py-3 font-black text-sm w-full sm:w-auto">No me lo sé: retar a otro 🎯</button>
+          </div>
+        </div>
+      </section>
+
+      <aside id="game-sidebar" class="glass rounded-[2rem] p-5 flex flex-col gap-4 min-h-0">
+        <div class="panel rounded-2xl p-4">
+          <p class="text-xs text-brand-light font-black uppercase tracking-widest">Estado</p>
+          <div id="player-status" class="text-sm text-violet-100/70 mt-2">Esperando…</div>
+        </div>
+        <div id="score-strip" class="flex flex-col gap-2 overflow-y-auto scrollbar-none min-h-0"></div>
+      </aside>
+    </main>
+  </section>
+
+  <section id="screen-reveal" class="screen flex-col min-h-screen p-4 sm:p-6 gap-4 relative mobile-tight safe-bottom">
+    <div id="confetti-container" aria-hidden="true"></div>
+    <header class="w-full max-w-5xl mx-auto glass rounded-[2rem] px-5 py-4 text-center">
+      <p class="text-xs text-brand-light font-black uppercase tracking-widest">Resultado</p>
+      <h2 id="reveal-question" class="text-2xl sm:text-4xl font-black mt-1">Pregunta</h2>
+      <p class="text-violet-100/55 mt-2">Respuesta correcta: <span id="reveal-answer" class="text-gradient text-3xl font-black">—</span></p>
+      <p id="reveal-explanation" class="text-sm text-violet-100/55 mt-2 max-w-3xl mx-auto"></p>
+    </header>
+
+    <main class="w-full max-w-5xl mx-auto grid lg:grid-cols-[.82fr_1.18fr] gap-4 flex-1 min-h-0">
+      <section class="glass rounded-[2rem] p-5 flex flex-col items-center justify-center text-center">
+        <div id="round-winner-box" class="winner-card w-full rounded-[2rem] bg-gradient-to-br from-brand/35 to-quiz-pink/20 border border-brand-light/30 p-5"></div>
+        <div id="team-round-box" class="w-full mt-3"></div>
+      </section>
+
+      <section class="glass rounded-[2rem] p-5 flex flex-col min-h-[420px]">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <p class="text-xs text-brand-light font-black uppercase tracking-widest">Detalle</p>
+            <h3 class="text-2xl font-black">Respuestas y puntos</h3>
+          </div>
+          <div id="round-rule" class="text-xs font-black px-3 py-1.5 rounded-full bg-white/10 text-violet-100/70">Trivial</div>
+        </div>
+        <div id="reveal-results" class="flex flex-col gap-2 flex-1 overflow-y-auto scrollbar-none"></div>
+        <div class="pt-4 mt-4 border-t border-white/10">
+          <button id="next-round-button" onclick="App.nextRound()" class="btn-brand w-full rounded-2xl py-4 font-black text-lg">Siguiente pregunta →</button>
+          <p id="guest-next-wait" class="hidden text-center text-violet-100/55 text-sm py-4">Esperando al anfitrión…</p>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <section id="screen-final" class="screen flex-col items-center justify-center min-h-screen p-6 gap-5 relative text-center safe-bottom">
+    <div id="final-confetti" aria-hidden="true"></div>
+    <div class="pop">
+      <p class="text-xs text-brand-light font-black uppercase tracking-[.35em]">Fin de la partida</p>
+      <div class="text-8xl my-4">🏆</div>
+      <p class="text-violet-100/45 font-bold uppercase tracking-widest text-xs">Ganador</p>
+      <h2 id="final-winner" class="text-5xl font-black text-gradient mt-1">—</h2>
+    </div>
+    <div class="w-full max-w-md glass rounded-[2rem] p-5 pop" style="animation-delay:.08s">
+      <div id="final-scores" class="flex flex-col gap-2"></div>
+      <div id="final-team-scores" class="mt-3"></div>
+      <button id="new-game-button" onclick="App.newGame()" class="btn-brand mt-5 w-full rounded-2xl py-4 font-black text-lg">Nueva partida</button>
+      <p id="guest-final-wait" class="hidden mt-4 text-sm text-violet-100/55">Esperando nueva sala…</p>
+    </div>
+    <button onclick="App.exitToHome()" class="text-xs text-violet-100/45 hover:text-violet-100/75 underline underline-offset-4">Salir al menú</button>
+  </section>
+
+  <div id="share-modal" class="hidden fixed inset-0 z-[90] px-4 py-6 items-center justify-center">
+    <button class="absolute inset-0 bg-black/75 backdrop-blur-sm" onclick="App.closeShareModal()" aria-label="Cerrar"></button>
+    <div class="relative w-full max-w-sm glass rounded-[2rem] p-5 pop">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <p class="text-xs text-brand-light font-black uppercase tracking-widest">Compartir sala</p>
+          <h2 class="text-3xl font-black">Código <span id="share-code" class="text-gradient">—</span></h2>
+        </div>
+        <button onclick="App.closeShareModal()" class="btn-soft rounded-2xl w-11 h-11 text-2xl">×</button>
+      </div>
+      <div id="qr-container" class="mx-auto bg-white p-3 rounded-[1.5rem] w-fit min-h-[220px] flex items-center justify-center"></div>
+      <p class="text-xs text-violet-100/45 text-center mt-3">Escanea o copia el enlace.</p>
+      <input id="share-link" readonly class="mt-4 w-full bg-black/25 border border-white/10 rounded-2xl px-3 py-3 text-xs text-violet-100/70 outline-none" />
+      <div class="grid grid-cols-2 gap-2 mt-3">
+        <button onclick="App.copyShareLink()" class="btn-soft rounded-2xl py-3 font-black">Copiar</button>
+        <button onclick="App.nativeShare()" class="btn-brand rounded-2xl py-3 font-black">Compartir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 glass px-5 py-3 rounded-2xl text-sm font-bold opacity-0 transition-opacity pointer-events-none z-[120] max-w-[calc(100vw-2rem)] text-center"></div>
+
+  <script src="js/GameAPI.js"></script>
+  <script type="module" src="js/notelasabes.js"></script>
+</body>
+</html>

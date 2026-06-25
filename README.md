@@ -2,7 +2,6 @@
 
 Juego multijugador de preguntas y respuestas inspirado en la estructura de **MercaPrecios** y alimentado con preguntas de **Trivial DB**.
 
-
 ## Qué incluye
 
 - SPA estática en HTML, CSS/Tailwind CDN y JavaScript vanilla.

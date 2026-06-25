@@ -60,7 +60,7 @@ function mulberry32(seed) {
 }
 function shuffle(list, seed = Date.now()) {
   const arr = [...list], rnd = mulberry32(seed);
-  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
   return arr;
 }
 function shuffledAnswerOptions(question, playerId = sid()) {
@@ -124,13 +124,13 @@ function gameState(extra = {}) {
 function applyGameState(gs = {}) {
   if (!gs || typeof gs !== 'object') return;
   state.hostId = String(gs.hostId || state.hostId || ''); state.players = (gs.players || state.players || []).map(normalizePlayer); state.settings = { ...DEFAULT_SETTINGS, ...state.settings, ...(gs.settings || {}) };
-  ['gameQuestionIds','currentRound','currentQuestion','round','answers','predictions','scores','teamScores','reveal','status','roundEndsAt'].forEach(k => { if (gs[k] !== undefined) state[k] = gs[k]; });
+  ['gameQuestionIds', 'currentRound', 'currentQuestion', 'round', 'answers', 'predictions', 'scores', 'teamScores', 'reveal', 'status', 'roundEndsAt'].forEach(k => { if (gs[k] !== undefined) state[k] = gs[k]; });
   state.isHost = sid() && sid() === state.hostId; applySettingsToUI();
 }
 async function saveRoom() { if (!state.room?.code) return; await api.updateRoomState(state.room.code, { gameState: gameState(), status: state.status, roomSettings: state.settings }).catch(e => console.warn(e)); }
 async function mergeAndSave(mutator) {
   if (!state.room?.code) return;
-  try { applyGameState(extractGameState(await api.getRoom(state.room.code))); } catch {}
+  try { applyGameState(extractGameState(await api.getRoom(state.room.code))); } catch { }
   mutator?.(); await saveRoom(); routeByStatus();
 }
 function startPolling(code) { clearInterval(state.pollTimer); state.pollTimer = setInterval(() => refreshRoom(code), POLL_MS); refreshRoom(code); }
@@ -140,7 +140,8 @@ async function refreshRoom(code = state.room?.code) {
   catch (e) { console.warn('poll', e); }
 }
 function syncSettingsFromUI() {
-  state.settings = { ...state.settings,
+  state.settings = {
+    ...state.settings,
     rounds: clamp($('cfg-rounds')?.value || 12, 3, 60), roundSeconds: clamp($('cfg-time')?.value || 35, 10, 180),
     allowPass: !!$('cfg-pass')?.checked, fastest: !!$('cfg-fastest')?.checked, adminReads: !!$('cfg-admin-reads')?.checked,
     categories: [...document.querySelectorAll('#category-list input:checked')].map(i => i.value),
@@ -223,8 +224,8 @@ function renderPredictions() { const show = state.settings.mode === 'know' && pr
 function renderPassButton() { const can = state.settings.allowPass && !state.round?.challenge && activeResponderIds().includes(sid()) && !hasMyAnswer() && state.players.length > 1; $('pass-panel')?.classList.toggle('hidden', !can); }
 function renderScores() {
   const root = $('score-strip'); if (!root) return;
-  const rows = state.players.map(p => ({ ...p, score: Number(state.scores[p.id] || 0) })).sort((a,b) => b.score - a.score);
-  root.innerHTML = rows.map((p, i) => `<div class="panel rounded-2xl p-3 flex items-center gap-3"><span class="w-7 text-center font-black text-violet-100/45">#${i+1}</span><span class="flex-1 font-black truncate">${esc(p.username)}</span><span class="text-xl font-black text-gradient">${p.score}</span></div>`).join('');
+  const rows = state.players.map(p => ({ ...p, score: Number(state.scores[p.id] || 0) })).sort((a, b) => b.score - a.score);
+  root.innerHTML = rows.map((p, i) => `<div class="panel rounded-2xl p-3 flex items-center gap-3"><span class="w-7 text-center font-black text-violet-100/45">#${i + 1}</span><span class="flex-1 font-black truncate">${esc(p.username)}</span><span class="text-xl font-black text-gradient">${p.score}</span></div>`).join('');
 }
 function pickQuestionIds() {
   let ids = [];
@@ -254,7 +255,7 @@ function chooseChallengee(challengerId) {
   if (!candidates.length) return null; return candidates[Math.floor(Math.random() * candidates.length)].id;
 }
 function addScore(scores, id, n) { scores[id] = Number(scores[id] || 0) + Number(n || 0); }
-function addTeam(teamScores, idOrTeam, n) { const t = ['A','B'].includes(idOrTeam) ? idOrTeam : playerById(idOrTeam)?.team; if (t) teamScores[t] = Number(teamScores[t] || 0) + Number(n || 0); }
+function addTeam(teamScores, idOrTeam, n) { const t = ['A', 'B'].includes(idOrTeam) ? idOrTeam : playerById(idOrTeam)?.team; if (t) teamScores[t] = Number(teamScores[t] || 0) + Number(n || 0); }
 function calculateReveal() {
   const q = state.currentQuestion, correctIndex = q.answers.findIndex(a => a.correct), rows = state.players.map(p => { const a = state.answers[p.id], pr = state.predictions[p.id], ok = Number(a?.answerIndex) === correctIndex; return { player: p, answer: a, prediction: pr, correct: ok, points: 0, note: '' }; });
   const scores = { ...state.scores }, teamScores = { ...state.teamScores }; let winners = [], teamOutcome = '';
@@ -288,13 +289,13 @@ function renderReveal() {
   $('next-round-button')?.classList.toggle('hidden', !state.isHost); $('guest-next-wait')?.classList.toggle('hidden', state.isHost);
 }
 function renderFinal() {
-  showScreen('final'); launchConfetti('final-confetti', 120); const rows = state.players.map(p => ({ ...p, score: Number(state.scores[p.id] || 0) })).sort((a,b) => b.score - a.score), best = rows[0]?.score ?? 0, winners = rows.filter(p => p.score === best);
-  $('final-winner') && ($('final-winner').textContent = winners.map(p => p.username).join(' + ') || '—'); $('final-scores') && ($('final-scores').innerHTML = rows.map((p,i) => `<div class="${i===0?'winner-card bg-brand/20 border-brand-light/40':'panel'} rounded-2xl p-3 flex items-center gap-3 border border-white/10"><span class="w-8 text-center font-black text-violet-100/45">#${i+1}</span><span class="flex-1 text-left font-black">${esc(p.username)}</span><span class="text-2xl font-black text-gradient">${p.score}</span></div>`).join(''));
+  showScreen('final'); launchConfetti('final-confetti', 120); const rows = state.players.map(p => ({ ...p, score: Number(state.scores[p.id] || 0) })).sort((a, b) => b.score - a.score), best = rows[0]?.score ?? 0, winners = rows.filter(p => p.score === best);
+  $('final-winner') && ($('final-winner').textContent = winners.map(p => p.username).join(' + ') || '—'); $('final-scores') && ($('final-scores').innerHTML = rows.map((p, i) => `<div class="${i === 0 ? 'winner-card bg-brand/20 border-brand-light/40' : 'panel'} rounded-2xl p-3 flex items-center gap-3 border border-white/10"><span class="w-8 text-center font-black text-violet-100/45">#${i + 1}</span><span class="flex-1 text-left font-black">${esc(p.username)}</span><span class="text-2xl font-black text-gradient">${p.score}</span></div>`).join(''));
   $('final-team-scores') && ($('final-team-scores').innerHTML = isTeamMode(state.settings.mode) ? `<div class="panel rounded-2xl p-4 font-black">${teamEmoji('A')} ${teamName('A')}: ${state.teamScores.A || 0}<br>${teamEmoji('B')} ${teamName('B')}: ${state.teamScores.B || 0}</div>` : '');
   $('new-game-button')?.classList.toggle('hidden', !state.isHost); $('guest-final-wait')?.classList.toggle('hidden', state.isHost);
 }
 function routeByStatus() { if (state.status === 'waiting' || state.status === 'idle') renderWaiting(); else if (state.status === 'playing') renderGame(); else if (state.status === 'reveal') renderReveal(); else if (state.status === 'finished') renderFinal(); }
-function launchConfetti(id = 'confetti-container', count = 90) { const root = $(id); if (!root) return; root.innerHTML = ''; const colors = ['#7C3AED','#C4B5FD','#FB7185','#FACC15','#34D399','#38BDF8']; for (let i=0;i<count;i++){ const d=document.createElement('div'); d.className='confetti-piece'; d.style.left=Math.random()*100+'vw'; d.style.width=d.style.height=5+Math.random()*9+'px'; d.style.background=colors[i%colors.length]; d.style.animationDuration=2+Math.random()*3+'s'; d.style.animationDelay=Math.random()*.7+'s'; root.appendChild(d); } setTimeout(()=>root.innerHTML='',6000); }
+function launchConfetti(id = 'confetti-container', count = 90) { const root = $(id); if (!root) return; root.innerHTML = ''; const colors = ['#7C3AED', '#C4B5FD', '#FB7185', '#FACC15', '#34D399', '#38BDF8']; for (let i = 0; i < count; i++) { const d = document.createElement('div'); d.className = 'confetti-piece'; d.style.left = Math.random() * 100 + 'vw'; d.style.width = d.style.height = 5 + Math.random() * 9 + 'px'; d.style.background = colors[i % colors.length]; d.style.animationDuration = 2 + Math.random() * 3 + 's'; d.style.animationDelay = Math.random() * .7 + 's'; root.appendChild(d); } setTimeout(() => root.innerHTML = '', 6000); }
 async function prepareUser() {
   const username = ($('input-username')?.value || state.user?.username || '').trim(); if (username.length < 2) { $('login-error') && ($('login-error').textContent = 'Pon un nombre de al menos 2 caracteres.'); $('login-error')?.classList.remove('hidden'); return false; }
   if (state.user?.id && state.user.username === username) return true;
@@ -302,33 +303,33 @@ async function prepareUser() {
   catch { state.user = { id: 'local-' + Math.random().toString(36).slice(2), username }; toast('Jugador local creado.', '⚠️'); }
   localStorage.setItem(USER_KEY, JSON.stringify(state.user)); $('switch-user')?.classList.remove('hidden'); return true;
 }
-function restoreUser() { try { const u = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); if (u?.id) { state.user = u; $('input-username') && ($('input-username').value = u.username); $('switch-user')?.classList.remove('hidden'); } } catch {} }
+function restoreUser() { try { const u = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); if (u?.id) { state.user = u; $('input-username') && ($('input-username').value = u.username); $('switch-user')?.classList.remove('hidden'); } } catch { } }
 function getShareUrl() { return `${location.origin}${location.pathname}?sala=${encodeURIComponent(state.room?.code || '')}`; }
 function renderQR(url) { const r = $('qr-container'); if (r) r.innerHTML = `<img class="rounded-2xl" width="220" height="220" alt="QR" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}">`; }
 window.App = {
   async init() { restoreUser(); renderModeList(); document.querySelectorAll('#admin-settings input').forEach(i => i.addEventListener('change', App.syncSettings)); await loadCatalog(); const code = new URLSearchParams(location.search).get('sala') || new URLSearchParams(location.search).get('room'); if (code) { App.showJoinForm(); $('input-room-code') && ($('input-room-code').value = code.toUpperCase()); } },
-  async createHomeRoom() { const btn = $('btn-create-room'); setBusy(btn,true,'Creando…'); try { if (!(await prepareUser())) return; syncSettingsFromUI(); state.hostId=sid(); state.isHost=true; state.players=[currentPlayer()]; state.scores={ [sid()]:0 }; state.status='waiting'; const room = await api.createRoom(state.gameId, sid(), state.settings, gameState({status:'waiting'})); state.room=normalizeRoom(room); saveActive(); await saveRoom(); startPolling(state.room.code); renderWaiting(); toast('Sala creada','✅'); } catch(e){ console.error(e); toast('No se pudo crear la sala','⚠️'); } finally { setBusy(btn,false); } },
-  async showJoinForm() { await prepareUser().catch(()=>{}); $('join-container')?.classList.remove('hidden'); $('login-actions')?.classList.add('hidden'); },
+  async createHomeRoom() { const btn = $('btn-create-room'); setBusy(btn, true, 'Creando…'); try { if (!(await prepareUser())) return; syncSettingsFromUI(); state.hostId = sid(); state.isHost = true; state.players = [currentPlayer()]; state.scores = { [sid()]: 0 }; state.status = 'waiting'; const room = await api.createRoom(state.gameId, sid(), state.settings, gameState({ status: 'waiting' })); state.room = normalizeRoom(room); saveActive(); await saveRoom(); startPolling(state.room.code); renderWaiting(); toast('Sala creada', '✅'); } catch (e) { console.error(e); toast('No se pudo crear la sala', '⚠️'); } finally { setBusy(btn, false); } },
+  async showJoinForm() { await prepareUser().catch(() => { }); $('join-container')?.classList.remove('hidden'); $('login-actions')?.classList.add('hidden'); },
   hideJoinForm() { $('join-container')?.classList.add('hidden'); $('login-actions')?.classList.remove('hidden'); },
-  async joinHomeRoom() { const code = ($('input-room-code')?.value || '').trim().toUpperCase(); if (!(await prepareUser()) || !code) return; try { const room = await api.getRoom(code); state.room=normalizeRoom(room, code); state.settings=extractSettings(room); applyGameState(extractGameState(room)); if (!state.hostId) state.hostId = String(room.host_id ?? room.hostId ?? state.hostId); state.isHost=sid()===state.hostId; await api.joinRoom(code,sid()).catch(()=>{}); upsertPlayer({ ...currentPlayer(), team: state.players.length % 2 ? 'B':'A' }); await saveRoom(); saveActive(); startPolling(code); renderWaiting(); toast('Dentro de la sala','✅'); } catch(e){ console.error(e); $('join-error') && ($('join-error').textContent='No se pudo entrar en la sala.'); $('join-error')?.classList.remove('hidden'); } },
-  async startGame() { if (!state.isHost) return; syncSettingsFromUI(); if (isTeamMode(state.settings.mode) && state.players.length < 2) return toast('Hacen falta al menos 2 jugadores.','⚠️'); state.players=assignTeams(); state.gameQuestionIds=pickQuestionIds(); const next=await nextValidQuestion(0); if(!next) return toast('No hay preguntas válidas.','⚠️'); Object.assign(state,{ currentRound:next.index, currentQuestion:next.question, round:buildRound(next.index), answers:{}, predictions:{}, reveal:null, scores:Object.fromEntries(state.players.map(p=>[p.id,0])), teamScores:{A:0,B:0}, status:'playing', roundEndsAt:Date.now()+state.settings.roundSeconds*1000 }); await saveRoom(); renderGame(); },
-  async submitAnswer(answerIndex) { if (state.status!=='playing' || !activeResponderIds().includes(sid()) || hasMyAnswer()) return; const answer={ answerIndex:Number(answerIndex), at:Date.now(), questionId:state.currentQuestion?.id }; state.selectedAnswer=Number(answerIndex); await mergeAndSave(()=>{ state.answers={...state.answers,[sid()]:answer}; }); if(state.isHost && allRequiredDone()) setTimeout(()=>App.revealRound(),120); },
-  async submitPrediction(thinksKnows) { if (state.status!=='playing' || !predictionIds().includes(sid()) || hasMyPrediction()) return; await mergeAndSave(()=>{ state.predictions={...state.predictions,[sid()]:{ thinksKnows:!!thinksKnows, at:Date.now(), targetPlayerId:state.round?.targetPlayerId }}; }); if(state.isHost && allRequiredDone()) setTimeout(()=>App.revealRound(),120); },
-  async hitBuzzer() { if(!state.settings.fastest || state.round?.buzzerWinnerId || !candidateResponderIds().includes(sid())) return; await mergeAndSave(()=>{ if(!state.round.buzzerWinnerId){ state.round={...state.round,buzzerWinnerId:sid(),buzzerOpen:false,activeResponderIds:[sid()]}; }}); },
-  async passQuestion() { if(!state.settings.allowPass || state.round?.challenge || !activeResponderIds().includes(sid())) return; const id=chooseChallengee(sid()); if(!id) return toast('No hay rival disponible.','⚠️'); await mergeAndSave(()=>{ state.answers={}; state.predictions={}; state.round={...state.round,challenge:{challengerId:sid(),challengeeId:id},activeResponderIds:[id],predictorIds:[],buzzerOpen:false,buzzerWinnerId:null}; state.roundEndsAt=Date.now()+state.settings.roundSeconds*1000; }); toast(`Pregunta pasada a ${playerById(id)?.username || 'otro jugador'}`,'🎯'); },
-  async revealRound() { if(!state.isHost || state.status!=='playing') return; state.reveal=calculateReveal(); state.scores=state.reveal.scores; state.teamScores=state.reveal.teamScores; state.status='reveal'; await saveRoom(); renderReveal(); launchConfetti(); },
-  async nextRound() { if(!state.isHost) return; const next=await nextValidQuestion(Number(state.currentRound)+1); if(!next){ state.status='finished'; await saveRoom(); return renderFinal(); } Object.assign(state,{ currentRound:next.index,currentQuestion:next.question,round:buildRound(next.index),answers:{},predictions:{},reveal:null,selectedAnswer:null,status:'playing',roundEndsAt:Date.now()+state.settings.roundSeconds*1000 }); await saveRoom(); renderGame(); },
-  async newGame() { if(!state.isHost) return; Object.assign(state,{ status:'waiting',answers:{},predictions:{},reveal:null,round:null,currentQuestion:null,currentRound:0,gameQuestionIds:[],scores:Object.fromEntries(state.players.map(p=>[p.id,0])),teamScores:{A:0,B:0} }); await saveRoom(); renderWaiting(); },
-  selectMode(mode) { if(!MODES[mode] || (!state.isHost && state.room)) return; state.settings.mode=mode; App.syncSettings(); },
-  adjustSetting(key,delta){ const map={rounds:['cfg-rounds',3,60],roundSeconds:['cfg-time',10,180]}, [id,min,max]=map[key]||[]; if(!id) return; $(id).value=clamp(Number($(id).value||0)+delta,min,max); App.syncSettings(); },
-  syncSettings(){ if(!state.isHost && state.room) return; syncSettingsFromUI(); state.room?.code && saveRoom(); },
-  clearCategories(){ document.querySelectorAll('#category-list input').forEach(i=>i.checked=false); App.syncSettings(); }, focusCategories(){ $('category-search')?.focus(); },
-  filterCategories(v){ const q=String(v||'').toLowerCase(); document.querySelectorAll('#category-list [data-category-name]').forEach(el=>el.classList.toggle('hidden', q && !el.dataset.categoryName.includes(q))); },
-  openShareModal(){ if(!state.room?.code) return; const url=getShareUrl(); $('share-code') && ($('share-code').textContent=state.room.code); $('share-link') && ($('share-link').value=url); renderQR(url); $('share-modal')?.classList.remove('hidden'); $('share-modal')?.classList.add('flex'); }, closeShareModal(){ $('share-modal')?.classList.add('hidden'); $('share-modal')?.classList.remove('flex'); },
-  async copyShareLink(){ const url=getShareUrl(); try{ await navigator.clipboard.writeText(url); }catch{ $('share-link')?.select(); document.execCommand('copy'); } toast('Enlace copiado','✅'); },
-  async nativeShare(){ const url=getShareUrl(); if(navigator.share) { try{ await navigator.share({title:'No te la sabes',text:`Únete a mi sala ${state.room?.code}`,url}); }catch{} } else App.copyShareLink(); },
-  switchUser(){ localStorage.removeItem(USER_KEY); clearActive(); state.user=null; $('input-username') && ($('input-username').value=''); showScreen('login'); },
-  exitToHome(){ clearInterval(state.pollTimer); clearInterval(state.timer); clearActive(); state.room=null; state.status='idle'; state.isHost=false; showScreen('login'); }
+  async joinHomeRoom() { const code = ($('input-room-code')?.value || '').trim().toUpperCase(); if (!(await prepareUser()) || !code) return; try { const room = await api.getRoom(code); state.room = normalizeRoom(room, code); state.settings = extractSettings(room); applyGameState(extractGameState(room)); if (!state.hostId) state.hostId = String(room.host_id ?? room.hostId ?? state.hostId); state.isHost = sid() === state.hostId; await api.joinRoom(code, sid()).catch(() => { }); upsertPlayer({ ...currentPlayer(), team: state.players.length % 2 ? 'B' : 'A' }); await saveRoom(); saveActive(); startPolling(code); renderWaiting(); toast('Dentro de la sala', '✅'); } catch (e) { console.error(e); $('join-error') && ($('join-error').textContent = 'No se pudo entrar en la sala.'); $('join-error')?.classList.remove('hidden'); } },
+  async startGame() { if (!state.isHost) return; syncSettingsFromUI(); if (isTeamMode(state.settings.mode) && state.players.length < 2) return toast('Hacen falta al menos 2 jugadores.', '⚠️'); state.players = assignTeams(); state.gameQuestionIds = pickQuestionIds(); const next = await nextValidQuestion(0); if (!next) return toast('No hay preguntas válidas.', '⚠️'); Object.assign(state, { currentRound: next.index, currentQuestion: next.question, round: buildRound(next.index), answers: {}, predictions: {}, reveal: null, scores: Object.fromEntries(state.players.map(p => [p.id, 0])), teamScores: { A: 0, B: 0 }, status: 'playing', roundEndsAt: Date.now() + state.settings.roundSeconds * 1000 }); await saveRoom(); renderGame(); },
+  async submitAnswer(answerIndex) { if (state.status !== 'playing' || !activeResponderIds().includes(sid()) || hasMyAnswer()) return; const answer = { answerIndex: Number(answerIndex), at: Date.now(), questionId: state.currentQuestion?.id }; state.selectedAnswer = Number(answerIndex); await mergeAndSave(() => { state.answers = { ...state.answers, [sid()]: answer }; }); if (state.isHost && allRequiredDone()) setTimeout(() => App.revealRound(), 120); },
+  async submitPrediction(thinksKnows) { if (state.status !== 'playing' || !predictionIds().includes(sid()) || hasMyPrediction()) return; await mergeAndSave(() => { state.predictions = { ...state.predictions, [sid()]: { thinksKnows: !!thinksKnows, at: Date.now(), targetPlayerId: state.round?.targetPlayerId } }; }); if (state.isHost && allRequiredDone()) setTimeout(() => App.revealRound(), 120); },
+  async hitBuzzer() { if (!state.settings.fastest || state.round?.buzzerWinnerId || !candidateResponderIds().includes(sid())) return; await mergeAndSave(() => { if (!state.round.buzzerWinnerId) { state.round = { ...state.round, buzzerWinnerId: sid(), buzzerOpen: false, activeResponderIds: [sid()] }; } }); },
+  async passQuestion() { if (!state.settings.allowPass || state.round?.challenge || !activeResponderIds().includes(sid())) return; const id = chooseChallengee(sid()); if (!id) return toast('No hay rival disponible.', '⚠️'); await mergeAndSave(() => { state.answers = {}; state.predictions = {}; state.round = { ...state.round, challenge: { challengerId: sid(), challengeeId: id }, activeResponderIds: [id], predictorIds: [], buzzerOpen: false, buzzerWinnerId: null }; state.roundEndsAt = Date.now() + state.settings.roundSeconds * 1000; }); toast(`Pregunta pasada a ${playerById(id)?.username || 'otro jugador'}`, '🎯'); },
+  async revealRound() { if (!state.isHost || state.status !== 'playing') return; state.reveal = calculateReveal(); state.scores = state.reveal.scores; state.teamScores = state.reveal.teamScores; state.status = 'reveal'; await saveRoom(); renderReveal(); launchConfetti(); },
+  async nextRound() { if (!state.isHost) return; const next = await nextValidQuestion(Number(state.currentRound) + 1); if (!next) { state.status = 'finished'; await saveRoom(); return renderFinal(); } Object.assign(state, { currentRound: next.index, currentQuestion: next.question, round: buildRound(next.index), answers: {}, predictions: {}, reveal: null, selectedAnswer: null, status: 'playing', roundEndsAt: Date.now() + state.settings.roundSeconds * 1000 }); await saveRoom(); renderGame(); },
+  async newGame() { if (!state.isHost) return; Object.assign(state, { status: 'waiting', answers: {}, predictions: {}, reveal: null, round: null, currentQuestion: null, currentRound: 0, gameQuestionIds: [], scores: Object.fromEntries(state.players.map(p => [p.id, 0])), teamScores: { A: 0, B: 0 } }); await saveRoom(); renderWaiting(); },
+  selectMode(mode) { if (!MODES[mode] || (!state.isHost && state.room)) return; state.settings.mode = mode; App.syncSettings(); },
+  adjustSetting(key, delta) { const map = { rounds: ['cfg-rounds', 3, 60], roundSeconds: ['cfg-time', 10, 180] }, [id, min, max] = map[key] || []; if (!id) return; $(id).value = clamp(Number($(id).value || 0) + delta, min, max); App.syncSettings(); },
+  syncSettings() { if (!state.isHost && state.room) return; syncSettingsFromUI(); state.room?.code && saveRoom(); },
+  clearCategories() { document.querySelectorAll('#category-list input').forEach(i => i.checked = false); App.syncSettings(); }, focusCategories() { $('category-search')?.focus(); },
+  filterCategories(v) { const q = String(v || '').toLowerCase(); document.querySelectorAll('#category-list [data-category-name]').forEach(el => el.classList.toggle('hidden', q && !el.dataset.categoryName.includes(q))); },
+  openShareModal() { if (!state.room?.code) return; const url = getShareUrl(); $('share-code') && ($('share-code').textContent = state.room.code); $('share-link') && ($('share-link').value = url); renderQR(url); $('share-modal')?.classList.remove('hidden'); $('share-modal')?.classList.add('flex'); }, closeShareModal() { $('share-modal')?.classList.add('hidden'); $('share-modal')?.classList.remove('flex'); },
+  async copyShareLink() { const url = getShareUrl(); try { await navigator.clipboard.writeText(url); } catch { $('share-link')?.select(); document.execCommand('copy'); } toast('Enlace copiado', '✅'); },
+  async nativeShare() { const url = getShareUrl(); if (navigator.share) { try { await navigator.share({ title: 'No te la sabes', text: `Únete a mi sala ${state.room?.code}`, url }); } catch { } } else App.copyShareLink(); },
+  switchUser() { localStorage.removeItem(USER_KEY); clearActive(); state.user = null; $('input-username') && ($('input-username').value = ''); showScreen('login'); },
+  exitToHome() { clearInterval(state.pollTimer); clearInterval(state.timer); clearActive(); state.room = null; state.status = 'idle'; state.isHost = false; showScreen('login'); }
 };
 window.addEventListener('beforeunload', () => { clearInterval(state.pollTimer); clearInterval(state.timer); });
 window.addEventListener('DOMContentLoaded', () => App.init());
